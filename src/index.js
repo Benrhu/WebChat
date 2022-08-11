@@ -1,17 +1,17 @@
-import path from 'path';
-import express from 'express';
-import http from 'http';
-import socketIO from 'socket.io';
-import Filter from 'bad-words';
+const path = require('path');
+const express = require('express');
+const http = require('http');
+const socketIO = require('socket.io');
+const Filter = require('bad-words');
 require("dotenv").config();
 
 const { generateMessage, generateLocationMessage } = require('./utils/messages');
 const { addUser, removeUser, getUser, getUsersInRoom } = require('./utils/users');
 
+const app = express();
 const port = process.env.PORT || 3000;
 const server = http.createServer(app);
 const publicDirectoryPath = path.join(__dirname, '../public');
-const app = express();
 
 const io = socketIO(server);
 
@@ -43,7 +43,20 @@ io.on('connection', socket => {
 
             callback();
         }});
-    
+
+    socket.on('sendMessage', (message, callback) => {
+        const user = getUser(socket.id);
+        const filter = new Filter();
+
+        if(filter.isProfane(message)){
+            return callback('Profanity is not allowed');
+        } else {
+            io.to(user.room).emit("message", generateMessage(user.username, message));
+            callback();
+        }
+    });
+
+
     socket.on('sendLocation', (coords, callback) => {
         const user = getUser(socket.id);
      
@@ -64,9 +77,9 @@ io.on('connection', socket => {
                 users: getUsersInRoom(user.room)
             });
         }
-    } );
+    });
 } );
 
 server.listen(port, () => {
-    console.log(`Server is up on port ${port}`);
+    console.log(`Server is running on port ${port}`);
 });
